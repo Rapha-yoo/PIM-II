@@ -1,177 +1,1376 @@
+# ----------------------------
+# PARTE 1 — IMPORTS E GLOBAIS
+# ----------------------------
+import tkinter as tk
 from tkinter import messagebox
-import csv
+from tkinter import scrolledtext
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import hashlib
 
-# === Função: lançar notas ===
-def lancar_notas():
-    nome = entry_nome.get().strip()
-    matricula = entry_matricula.get().strip()
-    nota1 = entry_nota1.get().strip()
-    nota2 = entry_nota2.get().strip()
+# lista usada para validar se a senha contém número
+numero = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
-    if nome == "" or matricula == "" or nota1 == "" or nota2 == "":
+# Variáveis globais 
+professor_logado = ""
+secretario_logado = ""
+
+def gerar_email(nome, tipo_usuario):
+    # limpar nome
+    n = nome.lower().replace(" ", "")
+
+    # definir tipo
+    if tipo_usuario == "docente":
+        sufixo = "@docente.com"
+        caminho = "C:\\Users\\Lfgr1\\Python\\output\\professor.csv"
+    elif tipo_usuario == "secretario":
+        sufixo = "@secretario.com"
+        caminho = "C:\\Users\\Lfgr1\\Python\\output\\secretario.csv"
+    else:
+        sufixo = "@aluno.com"
+        caminho = "C:\\Users\\Lfgr1\\Python\\output\\students.csv"
+
+    # descobrir quantidade já cadastrada
+    try:
+        with open(caminho, "r", encoding="utf-8") as f:
+            linhas = f.readlines()
+    except:
+        linhas = []
+
+    # gerar número sequencial 
+    numero = str(len(linhas) + 1).zfill(2) #zfill, metodo para adicionar 0 antes da string
+
+    # montar email 
+    email = f"{n}{numero}{sufixo}"
+    return email
+# ----------------------------
+# CADASTRO DE SENHA - DOCENTE
+# ----------------------------
+def cadastrar_senha_prof():
+    global professor_logado
+    matricula = entry_matricula_prof.get().strip()
+    senha = entry_senha_prof.get().strip()
+
+
+    if matricula == "" or senha == "":
         messagebox.showwarning("Aviso", "Preencha todos os campos!")
         return
 
-    f = open("C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\students.csv", "r", encoding="utf-8")
-    conteudo = f.read()
-    f.close()
+    # verifica se existe do professor no arquivo
+    try:
+        f = open("C:\\Users\\Lfgr1\\Python\\output\\professor.csv", "r", encoding="utf-8")
+        linhas = f.readlines()
+        f.close()
+    except FileNotFoundError:
+        messagebox.showerror("Erro", "Arquivo de professores não encontrado!")
+        return
+
+    encontrado = any(matricula in linha for linha in linhas)
+    if not encontrado:
+        messagebox.showerror("Erro", "Professor não encontrado!")
+        return
+
+    # verifica tamanho e número na senha
+    if len(senha) < 6 or not any(d in senha for d in numero):
+        messagebox.showerror("Erro", "Senha deve ter no mínimo 6 caracteres e 1 número!")
+        return
+
+    senha_hash = hashlib.sha256(senha.encode()).hexdigest()
+
+    # pega o nome do professor pelo arquivo
+    nome_prof = ""
+    for linha in linhas:
+        partes = linha.strip().split(",")
+        if len(partes) >= 2 and partes[1] == matricula:
+            nome_prof = partes[0]  #Nome está no primeiro bloco, já que o arquivo é separado por blocos
+            break
+
+    if nome_prof == "":
+        messagebox.showerror("Erro", "Erro ao localizar nome do professor!")
+        return
+
+    # gera email automático
+    email = gerar_email(nome_prof, "docente")
+
+    # grava hash em arquivo de senhas
+    with open("C:\\Users\\Lfgr1\\Python\\output\\senha_professor.csv",
+            "a", encoding="utf-8") as f:
+        f.write(f"{matricula},{senha_hash},{email}\n")
+
+
+    # marca professor logado e fecha janelas
+    professor_logado = matricula
+    messagebox.showinfo("Sucesso", "Senha cadastrada com sucesso!")
+    entry_matricula_prof.delete(0, tk.END)
+    entry_senha_prof.delete(0, tk.END)
+    janela_docente.destroy()
+    abrir_menu_docente()
+
+# ---------------------------------
+# CADASTRO DE SENHA - SECRETÁRIO(A)
+# ---------------------------------
+def cadastrar_senha_secretario():
+    global secretario_logado
+    matricula = entry_matricula_sec.get().strip()
+    senha = entry_senha_sec.get().strip()
+
+    # verifica se existe o secretario no arquivo
+    if matricula == "" or senha == "":
+        messagebox.showwarning("Aviso", "Preencha todos os campos!")
+        return
+
+    try:
+        f = open("C:\\Users\\Lfgr1\\Python\\output\\secretario.csv", "r", encoding="utf-8")
+        linhas = f.readlines()
+        f.close()
+    except FileNotFoundError:
+        messagebox.showerror("Erro", "Arquivo de secretários não encontrado!")
+        return
+
+    encontrado = any(matricula in linha for linha in linhas)
+    if not encontrado:
+        messagebox.showerror("Erro", "Secretário não encontrado!")
+        return
+
+    if len(senha) < 6 or not any(d in senha for d in numero):
+        messagebox.showerror("Erro", "Senha deve ter no mínimo 6 caracteres e 1 número!")
+        return
+
+    senha_hash = hashlib.sha256(senha.encode()).hexdigest()
+
+        # pegar nome do secretário no arquivo
+    nome_sec = ""
+    for linha in linhas:
+        partes = linha.strip().split(",")
+        if len(partes) >= 2 and partes[1] == matricula:
+            nome_sec = partes[0] #Nome está no primeiro bloco, já que o arquivo é separado por blocos
+            break
+
+    email = gerar_email(nome_sec, "secretario")
+
+    with open("C:\\Users\\Lfgr1\\Python\\output\\senha_secretario.csv", "a", encoding="utf-8") as f:
+        f.write(f"{matricula},{senha_hash},{email}\n")
+
+    secretario_logado = matricula
+    messagebox.showinfo("Sucesso", "Senha cadastrada com sucesso!")
+    entry_matricula_sec.delete(0, tk.END)
+    entry_senha_sec.delete(0, tk.END)
+    janela_secretario_cadastro.destroy()
+    abrir_menu_secretariado()
+
+
+# ----------------------------
+# LOGIN DOCENTE (PROFESSOR)
+# ----------------------------
+def login_docente():
+    # Usa a variável global professor_logado para armazenar que está logado
+    global professor_logado
+
+    # Pega a matrícula e a senha digitadas na tela de login
+    # .strip() remove espaços extras no início e no fim
+    matricula = entry_login_matricula.get().strip()
+    senha = entry_login_senha.get().strip()
+
+    if matricula == "" or senha == "":
+        messagebox.showwarning("Aviso", "Preencha todos os campos!")
+        return
+
+    # Tenta abrir o arquivo onde ficam as senhas dos professores
+    try:
+        f = open("C:\\Users\\Lfgr1\\Python\\output\\senha_professor.csv", "r", encoding="utf-8")
+        linhas = f.readlines()
+        f.close()
+    except FileNotFoundError:
+        messagebox.showerror("Erro", "Arquivo de senhas não encontrado!")
+        return
+
+    senha_hash_digitada = hashlib.sha256(senha.encode()).hexdigest()
+    
+    # Percorre cada linha do arquivo de senhas e verifica se as informações estão certas
+    autorizado = False
+    for m in linhas:
+        parts = m.strip().split(",")
+        if len(parts) >= 2 and parts[0] == matricula and parts[1] == senha_hash_digitada:
+            autorizado = True
+            break
+
+    if autorizado:
+        professor_logado = matricula
+        messagebox.showinfo("Login", "Bem-vindo!")
+        janela_login.destroy()
+        abrir_menu_docente()
+    else:
+        messagebox.showerror("Erro", "Credenciais inválidas!")
+
+
+# ----------------------------
+# MENU DO DOCENTE
+# ----------------------------
+def abrir_menu_docente():
+    janela_doc = tk.Toplevel()
+    janela_doc.title("Menu Docente")
+    janela_doc.geometry("400x400")
+
+    tk.Label(janela_doc, text="MENU DO PROFESSOR", font=("Arial", 12, "bold")).pack(pady=20)
+
+    tk.Button(janela_doc, text="Lançar Notas", width=25, command=abrir_janela_notas_global).pack(pady=10)
+
+    tk.Button(janela_doc, text="Média por Matéria (Gráfico)", width=25,
+              command=calcular_media_turma).pack(pady=10)
+
+    tk.Button(janela_doc, text="Pesquisar Aluno", width=25, command=abrir_pesquisa).pack(pady=10)
+
+    tk.Button(janela_doc, text="Meus Dados", width=25, command=consultar_dados_docente).pack(pady=10)
+    
+    tk.Button(janela_doc, text="Assistente Virtual", width=15, command=abrir_chatbot).pack(pady=10)
+
+    tk.Button(janela_doc, text="Sair", width=25,
+          command=aplicar_confirmacao_fechar(janela_doc)).pack(pady=20)
+
+
+# ======================================
+# PARTE 2 — JANELAS AUXILIARES / CONSULTAS
+# ======================================
+
+# ----------------------------------------------------
+# CONSULTAR DADOS DO DOCENTE LOGADO
+# ----------------------------------------------------
+def consultar_dados_docente():
+    global professor_logado
+
+    if professor_logado == "":
+        messagebox.showerror("Erro", "Nenhum docente está logado!")
+        return
+
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\professor.csv", "r", encoding="utf-8") as f:
+            linhas = f.readlines()
+    except:
+        messagebox.showerror("Erro", "Arquivo professor.csv não encontrado!")
+        return
+
+    for linha in linhas:
+        partes = linha.strip().split(",")
+
+        if len(partes) >= 2 and partes[1] == professor_logado:
+            dados_formatados = ""
+            email = ""
+
+            # buscar email no arquivo de senhas
+            try:
+                with open("C:\\Users\\Lfgr1\\Python\\output\\senha_professor.csv", "r", encoding="utf-8") as f:
+                    senhas = f.readlines()
+                for s in senhas:
+                    info = s.strip().split(",")
+                    if len(info) >= 3 and info[0] == professor_logado:
+                        email = info[2]
+                        break
+            except:
+                email = "(não encontrado)"
+
+            dados_formatados = (
+                f"Nome: {partes[0]}\n"
+                f"Matrícula: {partes[1]}\n"
+                f"E-mail: {email}\n"
+            )
+            messagebox.showinfo("Meus Dados", dados_formatados)
+            return
+
+    messagebox.showerror("Erro", "Dados do professor não encontrados!")
+
+
+# ----------------------------------------------------
+# CONSULTAR DADOS DO SECRETARIADO LOGADO
+# ----------------------------------------------------
+def consultar_dados_secretariado():
+    global secretario_logado   # pega a matrícula do professor logado no sistema
+
+    if secretario_logado == "":
+        messagebox.showerror("Erro", "Nenhum secretário está logado!")
+        return
+
+    # Tenta abrir o arquivo com todos os professores cadastrados
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\secretario.csv", "r", encoding="utf-8") as f:
+            linhas = f.readlines() # lê todas as linhas do arquivo
+    except:
+        messagebox.showerror("Erro", "Arquivo secretario.csv não encontrado!")
+        return
+    #Procurando dentro do arquivo o professor que tem a matrícula logada
+    for linha in linhas:
+        partes = linha.strip().split(",")
+        # Conferir se esta linha pertence ao professor
+        if len(partes) >= 2 and partes[1] == secretario_logado:
+            dados_formatados = ""
+            email = ""
+
+            try:
+                with open("C:\\Users\\Lfgr1\\Python\\output\\senha_secretario.csv", "r", encoding="utf-8") as f:
+                    senhas = f.readlines()
+                for s in senhas:
+                    info = s.strip().split(",")
+                    if len(info) >= 3 and info[0] == secretario_logado:
+                        email = info[2] #pega o email vinculado na matrícula
+                        break
+            except:
+                email = "(não encontrado)"
+            #Montar o texto final para mostrar ao usuário
+            dados_formatados = (
+                f"Nome: {partes[0]}\n"
+                f"Matrícula: {partes[1]}\n"
+                f"E-mail: {email}\n"
+            )
+
+            messagebox.showinfo("Meus Dados (Secretário)", dados_formatados)
+            return
+
+    messagebox.showerror("Erro", "Dados do secretário não encontrados!")
+
+
+# ======================================
+# PARTE 2 — JANELA PARA LANÇAR NOTAS
+# ======================================
+
+def abrir_janela_notas_global():
+    janela_notas = tk.Toplevel()
+    janela_notas.title("Lançar Notas")
+    janela_notas.geometry("400x400")
+
+    # Entradas
+    campos = [
+        ("Disciplina:", "disciplina"),
+        ("Nome do Aluno:", "nome"),
+        ("Matrícula:", "matricula"),
+        ("Nota 1:", "nota1"),
+        ("Nota 2:", "nota2")
+    ]
+
+    entradas = {}
+    #Cria rótulos e caixas de texto
+    for texto, chave in campos:
+        tk.Label(janela_notas, text=texto).pack()
+        entry = tk.Entry(janela_notas, width=40)
+        entry.pack()
+        entradas[chave] = entry
+
+    # Botão confirmar
+    tk.Button(
+        janela_notas,
+        text="Confirmar",
+        command=lambda: lancar_notas_global(
+            entradas["disciplina"].get(),
+            entradas["nome"].get(),
+            entradas["matricula"].get(),
+            entradas["nota1"].get(),
+            entradas["nota2"].get(),
+            janela_notas
+        )
+    ).pack(pady=10)
+
+
+# ======================================
+# LANÇAMENTO DE NOTAS - FUNÇÃO PRINCIPAL
+# ======================================
+
+def lancar_notas_global(disciplina, nome, matricula, nota1, nota2, janela_notas):
+
+    # disciplina válida
+    if disciplina.strip() == "":
+        messagebox.showwarning("Aviso", "Digite a disciplina!")
+        return
+
+    #verifica se disciplina existe no arquivo de matérias
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\materias.csv", "r", encoding="utf-8") as f:
+            materias = f.read()
+    except FileNotFoundError:
+        messagebox.showerror("Erro", "Arquivo de matérias não encontrado!")
+        return
+
+    if disciplina not in materias:
+        messagebox.showerror("Erro", "Matéria não cadastrada!")
+        return
+
+    # validações 
+    nome = nome.strip()
+    matricula = matricula.strip()
+
+    if nome == "" or matricula == "" or nota1 == "" or nota2 == "":
+        messagebox.showwarning("Aviso", "Preencha tudo!")
+        return
+
+    # verifica se aluno existe
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv", "r", encoding="utf-8") as f:
+            conteudo = f.read()
+    except:
+        messagebox.showerror("Erro", "Arquivo de alunos não encontrado!")
+        return
 
     if f"{nome},{matricula}" not in conteudo:
         messagebox.showerror("Erro", "Aluno não encontrado!")
         return
 
-    n1 = float(nota1)
-    n2 = float(nota2)
-    media = (n1 + n2) / 2
-
-    if media >= 7:
-        situacao = "Aprovado"
-    elif media >= 4:
-        situacao = "Exame"
-    else:
-        situacao = "Reprovado"
-
-    # Arquivo individual
-    nome_arquivo = f"C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\result_{matricula}.csv"
-    f = open(nome_arquivo, "w", encoding="utf-8")
-    f.write("Nome,Matricula,Nota1,Nota2,Media,Situacao\n")
-    f.write(f"{nome},{matricula},{n1:.2f},{n2:.2f},{media:.2f},{situacao}\n")
-    f.close()
-
-    # Arquivo geral de resultados
-    f2 = open("C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\results.csv", "a", encoding="utf-8")
-    f2.write(f"{nome},{matricula},{n1:.2f},{n2:.2f},{media:.2f},{situacao}\n")
-    f2.close()
-
-    messagebox.showinfo("Sucesso", f"Notas salvas no arquivo '{nome_arquivo}'.")
-
-    entry_nome.delete(0, tk.END)
-    entry_matricula.delete(0, tk.END)
-    entry_nota1.delete(0, tk.END)
-    entry_nota2.delete(0, tk.END)
-
-
-def read_usuarios():
-    f = open("C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\students.csv", "r", encoding="utf-8")
-    doc = f.read()
-    f.close()
-    resultado.config(text="=== Usuários Cadastrados ===\n" + doc)
-
-
-def read_notas():
-    f = open("C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\results.csv", "r", encoding="utf-8")
-    doc = f.read()
-    f.close()
-    resultado.config(text="=== Resultados dos Alunos ===\n" + doc)
-
-def pesquisar_aluno():
-    matricula = entry_pesquisa.get().strip()
-    nome_arquivo = f"C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\result_{matricula}.csv"
-
-    if matricula == "":
-        messagebox.showwarning("Aviso", "Digite uma matrícula para pesquisar!")
+    # valida notas
+    try:
+        n1 = float(nota1)
+        n2 = float(nota2)
+    except:
+        messagebox.showerror("Erro", "Notas inválidas!")
         return
 
-    f = open(nome_arquivo, "r", encoding="utf-8")
-    conteudo = f.read()
-    f.close()
+    # calcula media
+    media = (n1 + n2) / 2
 
-    if matricula in conteudo:
-        resultado.config(text=f"=== Resultado do Aluno {matricula} ===\n{conteudo}")
+    # situação
+    situacao = (
+        "Aprovado" if media >= 7 else
+        "reprovado" if media > 4 else
+        "Reprovado"
+    )
+
+    # salva arquivo individual do aluno
+    arq_individual = f"C:\\Users\\Lfgr1\\Python\\output\\result_{matricula}.csv"
+    with open(arq_individual, "a", encoding="utf-8") as f:
+        f.write("Nome,Matricula,Disciplina,Nota1,Nota2,Media,Situacao\n")
+        f.write(f"{nome},{matricula},{disciplina},{n1},{n2},{media},{situacao}\n")
+
+    # salva no arquivo geral de notas
+    with open("C:\\Users\\Lfgr1\\Python\\output\\results.csv", "a", encoding="utf-8") as f:
+        f.write(f"{nome},{matricula},{disciplina},{n1},{n2},{media},{situacao}\n")
+
+    messagebox.showinfo("Sucesso", "Notas lançadas!")
+    janela_notas.destroy()
+
+# ======================================
+# PARTE 3 — CÁLCULO DE MÉDIAS POR MATÉRIA
+# ======================================
+# Função para calcular medias por materia
+def calcular_media_turma():
+    janela = tk.Toplevel()
+    janela.title("Média por Matéria")
+    janela.geometry("400x250")
+
+    tk.Label(janela, text="Digite a Matéria (ex: Português):").pack(pady=10)
+    entry_materia = tk.Entry(janela, width=40)
+    entry_materia.pack()
+
+    def calcular():
+        materia = entry_materia.get().strip()
+
+        if materia == "":
+            messagebox.showwarning("Aviso", "Digite a matéria!")
+            return
+
+        #Ler arquivo
+        try:
+            with open(r"C:\Users\Lfgr1\Python\output\results.csv",
+                      "r", encoding="utf-8") as f:
+                notas = f.readlines()
+        except:
+            messagebox.showerror("Erro", "Arquivo results.csv não encontrado!")
+            return
+
+        #VERIFICAR SE MATÉRIA EXISTE
+        materia_existe = False
+        for linha in notas:
+            partes = linha.strip().split(",")
+            if len(partes) >= 3 and partes[2].lower() == materia.lower():
+                materia_existe = True
+                break
+
+        if not materia_existe:
+            messagebox.showerror("Erro", f"A matéria '{materia}' não está cadastrada!")
+            return
+
+        #LE ALUNOS 
+        try:
+            with open(r"C:\Users\Lfgr1\Python\output\students.csv",
+                      "r", encoding="utf-8") as f:
+                alunos = f.readlines()
+        except:
+            messagebox.showerror("Erro", "Arquivo students.csv não encontrado!")
+            return
+
+        turmas = {}   ## dicionário: TURMA / lista de médias
+
+        #AGRUPA NOTAS POR TURMA
+        for linha in notas:
+            partes = linha.strip().split(",")
+
+            if len(partes) < 6:
+                continue
+
+            matricula = partes[1]
+            materia_csv = partes[2]
+            media_final = float(partes[5])
+
+            if materia_csv.lower() != materia.lower():
+                continue
+            # Descobrir a turma do aluno pesquisando no arquivo
+            turma_aluno = ""
+            for al in alunos:
+                dados_aluno = al.strip().split(",")
+                if len(dados_aluno) >= 3 and dados_aluno[1] == matricula:
+                    turma_aluno = dados_aluno[2]
+                    break
+
+            if turma_aluno == "":
+                continue
+
+            if turma_aluno not in turmas:
+                turmas[turma_aluno] = []
+
+            turmas[turma_aluno].append(media_final)
+
+        #CALCULAR MÉDIAS 
+        medias_finais = {turma: (sum(lista) / len(lista)) for turma, lista in turmas.items()}
+
+        #GERAR GRÁFICO
+        janela_grafico = tk.Toplevel()
+        janela_grafico.title(f"Médias por Turma — {materia}")
+        janela_grafico.geometry("600x500")
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        turmas_lista = list(medias_finais.keys())
+        medias_lista = list(medias_finais.values())
+
+        ax.bar(turmas_lista, medias_lista, width=0.5)
+        ax.set_xlabel("Turmas")
+        ax.set_ylabel("Média")
+        ax.set_title(f"Média Final por Turma — {materia}")
+
+        canvas = FigureCanvasTkAgg(fig, master=janela_grafico)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    tk.Button(janela, text="Calcular", width=20, command=calcular).pack(pady=20)
+
+# ======================================
+# PARTE 4 — LEITURA / PESQUISA / EXCLUSÃO
+# ======================================
+
+def read_usuarios():
+    janela = tk.Toplevel()
+    janela.title("Usuários")
+
+    #ALUNOS
+    tk.Label(janela, text="=== ALUNOS CADASTRADOS ===", font=("Arial", 10, "bold")).pack()
+
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv", "r", encoding="utf-8") as f:
+            alunos = f.readlines()
+        for linha in alunos:
+            tk.Label(janela, text=linha.strip(), justify="left").pack(anchor="w")
+    except:
+        tk.Label(janela, text="Nenhum aluno encontrado.", fg="red").pack()
+
+    tk.Label(janela, text="\n").pack()  #espaçamento
+
+    #PROFESSORES
+    tk.Label(janela, text="=== PROFESSORES CADASTRADOS ===", font=("Arial", 10, "bold")).pack()
+
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\professor.csv", "r", encoding="utf-8") as f:
+            profs = f.readlines()
+        for linha in profs:
+            tk.Label(janela, text=linha.strip(), justify="left").pack(anchor="w")
+    except:
+        tk.Label(janela, text="Nenhum professor encontrado.", fg="red").pack()
+
+def consultar_dados_usuario():
+    janela = tk.Toplevel()
+    janela.title("Consultar Dados do Usuário")
+    janela.geometry("400x250")
+
+    tk.Label(janela, text="Digite a matrícula:").pack(pady=10)
+    entry_m = tk.Entry(janela, width=40)
+    entry_m.pack()
+
+    def buscar():
+        matricula = entry_m.get().strip()
+        if matricula == "":
+            messagebox.showwarning("Aviso", "Digite a matrícula!")
+            return
+
+        # ----- Tentar buscar em students.csv -----
+        try:
+            with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv",
+                      "r", encoding="utf-8") as f:
+                alunos = f.readlines()
+        except:
+            alunos = []# se der erro, considera lista vazia
+        # Percorre cada linha do arquivo de alunos
+        for linha in alunos:
+            partes = linha.strip().split(",")
+            if len(partes) >= 2 and partes[1] == matricula: # Verifica a matrícula
+                dados = (
+                    f"Tipo: ALUNO\n"
+                    f"Nome: {partes[0]}\n"
+                    f"Matrícula: {partes[1]}\n"
+                    f"Turma: {partes[2]}"
+                )
+                messagebox.showinfo("Dados do Usuário", dados)
+                return
+
+        #Tenta buscar o professor
+        try:
+            with open("C:\\Users\\Lfgr1\\Python\\output\\professor.csv",
+                      "r", encoding="utf-8") as f:
+                profs = f.readlines()
+        except:
+            profs = []
+        # Percorre cada linha do arquivo de professor
+        for linha in profs:
+            partes = linha.strip().split(",")
+            if len(partes) >= 2 and partes[1] == matricula:
+                dados = (
+                    f"Tipo: PROFESSOR\n"
+                    f"Nome: {partes[0]}\n"
+                    f"Matrícula: {partes[1]}\n"
+                    f"Disciplina: {partes[2] if len(partes) > 2 else 'Não informado'}"
+                )
+                messagebox.showinfo("Dados do Usuário", dados)
+                return
+
+        messagebox.showerror("Erro", "Usuário não encontrado!")
+
+    tk.Button(janela, text="Consultar", width=20, command=buscar).pack(pady=20)
+
+def abrir_pesquisa():  # Abre uma nova janela para pesquisar um aluno
+    janela = tk.Toplevel()
+    janela.title("Pesquisar aluno")
+    janela.geometry("450x500")
+
+    tk.Label(janela, text="Matrícula:").pack()
+    entry = tk.Entry(janela, width=40)
+    entry.pack()
+
+    def pesquisar():
+        m = entry.get().strip()
+        arquivo = f"C:\\Users\\Lfgr1\\Python\\output\\result_{m}.csv"
+
+        try:
+            with open(arquivo, "r", encoding="utf-8") as f:
+                linhas = f.readlines()
+        except:
+            messagebox.showerror("Erro", "Aluno não encontrado!")
+            return
+
+        if len(linhas) < 2:
+            messagebox.showerror("Erro", "Arquivo inválido!")
+            return
+
+        texto_notas = ""
+        nome_aluno = ""
+        matricula = ""
+        turma = ""
+
+        # Buscar turma no students.csv
+        try:
+            with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv", "r", encoding="utf-8") as f:
+                alunos = f.readlines()
+        except:
+            alunos = []
+
+        # LER TODAS AS NOTAS
+        for linha in linhas:
+
+            partes = linha.strip().split(",")
+
+            # ignorar cabeçalho repetido
+            if partes[0].lower() == "nome":
+                continue
+            if len(partes) < 7:
+                continue
+
+            nome_aluno = partes[0]
+            matricula = partes[1]
+            disciplina = partes[2]
+            nota1 = partes[3]
+            nota2 = partes[4]
+            media = partes[5]
+            situacao = partes[6]
+
+            # Buscar turma do aluno
+            for a in alunos:
+                p = a.strip().split(",")
+                if len(p) >= 3 and p[1] == matricula:
+                    turma = p[2]
+
+            texto_notas += (
+                f"Disciplina: {disciplina}\n"
+                f"Nota 1: {nota1}\n"
+                f"Nota 2: {nota2}\n"
+                f"Média: {media}\n"
+                f"Situação: {situacao}\n"
+                f"------------------------------\n"
+            )
+
+        texto_final = (
+            f"Tipo: ALUNO\n"
+            f"Nome: {nome_aluno}\n"
+            f"Matrícula: {matricula}\n"
+            f"Turma: {turma}\n"
+            f"==============================\n\n"
+            f"NOTAS:\n\n{texto_notas}"
+        )
+
+        tk.Label(janela, text=texto_final, justify="left").pack(pady=10)
+
+    tk.Button(janela, text="Buscar", command=pesquisar).pack(pady=10)
+
+def abrir_chatbot():
+
+    # JANELA
+    janela_chat = tk.Toplevel()
+    janela_chat.title("Assistente Virtual")
+    janela_chat.geometry("520x600")
+
+    # Caixa de histórico
+    chat_box = scrolledtext.ScrolledText(janela_chat, height=26, width=62, wrap="word")  # Caixa com rolagem
+    chat_box.pack(padx=10, pady=(10,4))
+    chat_box.config(state="disabled", font=("Arial", 10))# Não permite editar o texto
+
+    # Frame inferior
+    frame_baixo = tk.Frame(janela_chat)
+    frame_baixo.pack(fill="x", padx=10, pady=6)
+
+    entry_msg = tk.Entry(frame_baixo, width=44)# Campo onde o usuário digita
+    entry_msg.pack(side="left", padx=(0,8), pady=4)
+
+    btn_enviar = tk.Button(frame_baixo, text="Enviar", width=10)
+    btn_enviar.pack(side="left")
+
+    # SUGESTÕES
+    frame_sug = tk.Frame(janela_chat)
+    frame_sug.pack(fill="x", padx=10, pady=(0,10))
+
+    sugestoes = [
+        "Como lançar nota?",
+        "Como calcular média?",
+        "Como pesquisar aluno?",
+        "Onde ficam os arquivos?",
+        "Meus dados"
+    ]
+
+    # FUNÇÃO DE RESPOSTA-
+    def responder(texto):
+        #Normaliza o texto para evitar erros, deixa tudo minimizado, Remove quebras de linha e Remove espaços duplicados
+        t = str(texto).lower()
+        t = t.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+        t = " ".join(t.split())
+
+        #MEUS DADOS
+        if "meus dados" in t or ("dados" in t and "meu" in t):
+            return "Para ver seus dados, vá em Menu e clique em Meus Dados."
+
+        #MINHAS NOTAS
+        if "minhas notas" in t or ("notas" in t and "minhas" in t):
+            return "Para ver suas notas, use Menu e clique em Minhas Notas."
+
+        #LANÇAR NOTAS
+        if "lançar nota" in t or "lancar nota" in t or "lançar notas" in t or "lancar notas" in t:
+            return "Para lançar notas, vá no Menu e clique em Lançar Notas, em seguida digite a matéria, os dados do aluno e suas notas."
+
+        #EXIBIR NOTAS
+        if "exibir notas" in t or ("notas" in t and "exibir" in t):
+            return "Para exibir as notas registradas, abra Menu e clique em Exibir Notas."
+
+        #MÉDIA POR MATÉRIA (GRÁFICO)
+        if ("média" in t or "media" in t) and ("turma" in t or "matéria" in t or "materia" in t):
+            return "Para ver o gráfico de médias por matéria, vá Menu e clique em 'Média das Turmas por Matéria', digite a matéria desejada para ver o grafico."
+
+        #PESQUISAR ALUNO
+        if "pesquisar aluno" in t or ("pesquisar" in t and "aluno" in t):
+            return "Para pesquisar um aluno, vá em Menu e clique em Pesquisar Aluno e informe a matrícula."
+
+        #EXCLUIR USUÁRIO
+        if "excluir" in t and ("usuário" in t or "usuario" in t or "aluno" in t or "professor" in t):
+            return "Para excluir um usuário, abra Menu e clique em Excluir Usuário, digite a matricula do usuaria que deseja excluir."
+
+        #EXIBIR USUÁRIOS
+        if "exibir usuários" in t or "exibir usuarios" in t or ("usuarios" in t and "mostrar" in t):
+            return "Para ver todos os usuários, vá em Menu e clique em Exibir Usuários."
+
+        #AJUDA GERAL
+        if "ajuda" in t or "help" in t:
+            return (
+                "Posso ajudar com:\n"
+                "- Meus dados\n"
+                "- Minhas notas\n"
+                "- Lançar notas\n"
+                "- Exibir notas\n"
+                "- Médias por matéria\n"
+                "- Pesquisar aluno\n"
+                "- Excluir usuário\n"
+                "- Exibir usuários\n"
+                "- Ver arquivos\n"
+            )
+
+        #SAUDAÇÃO
+        if "ola" in t or "olá" in t or "bom dia" in t or "boa tarde" in t or "boa noite" in t:
+            return "Olá! Como posso ajudar?"
+
+        # se nada corresponder com a pesquisa
+        return (
+            "Não entendi. Você pode tentar:\n"
+            "- 'Como lançar notas?'\n"
+            "- 'Quero ver minhas notas'\n"
+            "- 'Onde ficam os arquivos?'\n"
+            "- 'Como pesquisar aluno?'\n"
+            "- 'Médias por matéria'\n"
+            "- 'Excluir usuário'\n"
+        )
+
+    # ENVIO DE MENSAGEM
+    def enviar_msg(event=None):
+        texto = entry_msg.get().strip()
+        if not texto:
+            return
+        # Mostra mensagem do usuário no histórico
+        chat_box.config(state="normal")
+        chat_box.insert("end", f"Você: {texto}\n")
+        chat_box.config(state="disabled")
+
+        entry_msg.delete(0, tk.END)
+
+        resposta = responder(texto)
+        # Mostra a resposta da IA
+        chat_box.config(state="normal")
+        chat_box.insert("end", f"Suzie: {resposta}\n\n")
+        chat_box.config(state="disabled")
+        chat_box.see("end")
+
+    btn_enviar.config(command=enviar_msg)
+    entry_msg.bind("<Return>", enviar_msg)
+
+    # MENSAGEM INICIAL
+    chat_box.config(state="normal")
+    chat_box.insert("end", "Suzie: Olá! Eu sou a assistente virtual. Como posso ajudar?\n\n")
+    chat_box.config(state="disabled")
+
+
+# ======================================
+# EXCLUSÃO DE USUÁRIOS
+# ======================================
+
+def abrir_janela_excluir():#função para excluir o usuario
+    janela_exc = tk.Toplevel()
+    janela_exc.title("Excluir Usuário")
+    janela_exc.geometry("400x200")
+
+    tk.Label(janela_exc, text="Digite a matrícula:").pack(pady=10)
+    entry_exc = tk.Entry(janela_exc, width=40)
+    entry_exc.pack()
+
+    def excluir():
+        matricula = entry_exc.get().strip()
+
+        if matricula == "":
+            messagebox.showwarning("Aviso", "Digite uma matrícula!")
+            return
+
+        achou = False
+
+        #EXCLUIR ALUNO
+        try:
+            with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv", "r", encoding="utf-8") as f:
+                alunos = f.readlines()
+        except:
+            alunos = []#cria lista vazia para o sistema não travar
+        # Percorre cada linha do arquivo de alunos
+        novos_alunos = []
+        for linha in alunos:
+            partes = linha.strip().split(",")
+            if len(partes) >= 2 and partes[1] == matricula:
+                achou = True
+            else:
+                novos_alunos.append(linha)
+
+        try:
+            with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv", "w", encoding="utf-8") as f:
+                f.writelines(novos_alunos)
+        except:
+            messagebox.showerror("Erro", "Falha ao salvar students.csv")
+            return
+
+        #EXCLUIR PROFESSOR
+        try:
+            with open("C:\\Users\\Lfgr1\\Python\\output\\professor.csv", "r", encoding="utf-8") as f:
+                profs = f.readlines()
+        except:
+            profs = []
+
+        novos_profs = []
+        for linha in profs:
+            partes = linha.strip().split(",")
+            if len(partes) >= 2 and partes[1] == matricula:
+                achou = True
+            else:
+                novos_profs.append(linha)
+
+        try:
+            with open("C:\\Users\\Lfgr1\\Python\\output\\professor.csv", "w", encoding="utf-8") as f:
+                f.writelines(novos_profs)
+        except:
+            messagebox.showerror("Erro", "Falha ao salvar professor.csv")
+            return
+
+        if achou:
+            messagebox.showinfo("Sucesso", "Usuário excluído com sucesso!")
+        else:
+            messagebox.showerror("Erro", "Usuário não encontrado!")
+
+    tk.Button(janela_exc, text="Excluir", width=25, command=excluir).pack(pady=20)
+
+
+# ======================================
+# LOGIN DO SECRETARIADO
+# ======================================
+
+def abrir_janela_login_secretario():
+    global janela_login_secretario, entry_login_sec_matricula, entry_login_sec_senha
+
+    janela_login_secretario = tk.Toplevel()
+    janela_login_secretario.title("Login Secretariado")
+    janela_login_secretario.geometry("400x300")
+
+    tk.Label(janela_login_secretario, text="Matrícula:").pack(pady=10)
+    entry_login_sec_matricula = tk.Entry(janela_login_secretario, width=40)
+    entry_login_sec_matricula.pack()
+
+    tk.Label(janela_login_secretario, text="Senha:").pack(pady=10)
+    entry_login_sec_senha = tk.Entry(janela_login_secretario, width=40, show="*")
+    entry_login_sec_senha.pack()
+
+    tk.Button(janela_login_secretario, text="Entrar",
+              command=login_secretario).pack(pady=20)
+
+
+def login_secretario():
+    global secretario_logado
+
+    matricula = entry_login_sec_matricula.get().strip()
+    senha = entry_login_sec_senha.get().strip()
+
+    if matricula == "" or senha == "":
+        messagebox.showwarning("Aviso", "Preencha todos os campos!")
+        return
+    # tenta abrir o arquivo que contém as senhas cadastradas dos secretários
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\senha_secretario.csv", "r", encoding="utf-8") as f:
+            linhas = f.readlines()# lê todas as linhas do arquivo
+    except:
+        messagebox.showerror("Erro", "Arquivo senha_secretario.csv não encontrado!")
+        return
+
+    senha_hash_digitada = hashlib.sha256(senha.encode()).hexdigest()
+    # percorre cada linha do arquivo para verificar se matrícula e senha coincidem
+    autorizado = False
+    for linha in linhas:
+        parts = linha.strip().split(",")
+        if len(parts) >= 2 and parts[0] == matricula and parts[1] == senha_hash_digitada:
+            autorizado = True
+            break
+    #registra o secretário como logado
+    if autorizado:
+        secretario_logado = matricula
+        messagebox.showinfo("Sucesso", "Login realizado!")
+        janela_login_secretario.destroy()
+        abrir_menu_secretariado()
     else:
-        messagebox.showerror("Erro", "Aluno não encontrado!")
+        messagebox.showerror("Erro", "Matrícula ou senha incorretas!")
 
 
-def consultar_cadastro():
-    matricula = entry_consulta.get().strip()
-    f = open("C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\students.csv", "r", encoding="utf-8")
-    linhas = f.readlines()
-    f.close()
+# ======================================
+# MENU DO SECRETARIADO
+# ======================================
+
+def abrir_menu_secretariado():
+    janela_sec = tk.Toplevel()
+    janela_sec.title("Menu Secretariado")
+    janela_sec.geometry("400x350")
+
+    tk.Label(janela_sec, text="MENU DO SECRETARIADO",
+             font=("Arial", 12, "bold")).pack(pady=20)
+
+    tk.Button(janela_sec, text="Excluir Usuário", width=25,
+              command=abrir_janela_excluir).pack(pady=10)
+
+    tk.Button(janela_sec, text="Exibir Usuários", width=25,
+              command=read_usuarios).pack(pady=10)
+    
+    tk.Button(janela_sec, text="Média por Matéria (Gráfico)", width=25,
+              command=calcular_media_turma).pack(pady=10)
+    
+    tk.Button(janela_sec, text="Consultar Dados de Usuário", width=25,
+          command=consultar_dados_usuario).pack(pady=10)
+
+    tk.Button(janela_sec, text="Meus Dados", width=25,
+              command=consultar_dados_secretariado).pack(pady=10)
+
+    tk.Button(janela_sec, text="Assistente Virtual", width=25,
+          command=abrir_chatbot).pack(pady=10)
+
+    tk.Button(janela_sec, text="Sair", width=25,
+          command=aplicar_confirmacao_fechar(janela_sec)).pack(pady=20)
+
+
+
+# ======================================
+# JANELAS DE ACESSO (Primeiro acesso / Login)
+# ======================================
+
+def abrir_janela_acesso(tipo): 
+    janela_menu.withdraw()
+    janela_acesso = tk.Toplevel()
+    janela_acesso.title("Acesso")
+    janela_acesso.geometry("400x300")
+
+    tk.Label(janela_acesso, text=f"Primeiro acesso ({tipo})?").pack(pady=20)
+    # função chamada caso o usuário responda "Sim"
+    def sim():
+        janela_acesso.destroy()# dependendo do tipo, vai abrir a janela apropriada para cadastro de senha
+        if tipo == "Docente":
+            abrir_janela_docente()
+        elif tipo == "Secretariado":
+            abrir_janela_cadastro_secretario()
+        elif tipo == "Aluno":
+            abrir_janela_cadastro_aluno()
+    # função chamada caso o usuário responda "Não"
+    def nao():  
+        janela_acesso.destroy()
+        if tipo == "Docente":
+            abrir_janela_login_docente()
+        elif tipo == "Secretariado":
+            abrir_janela_login_secretario()
+        elif tipo == "Aluno":
+            abrir_janela_login_aluno()
+
+    tk.Button(janela_acesso, text="Sim", width=10, command=sim).pack(pady=10)
+    tk.Button(janela_acesso, text="Não", width=10, command=nao).pack(pady=10)
+
+
+# ======================================
+# PARTE 5 — CADASTRO DOCENTE / SECRETARIADO
+# ======================================
+
+def abrir_janela_cadastro_secretario():
+    global janela_secretario_cadastro, entry_matricula_sec, entry_senha_sec
+
+    janela_secretario_cadastro = tk.Toplevel()
+    janela_secretario_cadastro.title("Cadastro Secretariado")
+    janela_secretario_cadastro.geometry("400x300")
+
+    tk.Label(janela_secretario_cadastro, text="Matrícula:").pack(pady=10)
+    entry_matricula_sec = tk.Entry(janela_secretario_cadastro, width=40)
+    entry_matricula_sec.pack()
+
+    tk.Label(janela_secretario_cadastro, text="Senha:").pack(pady=10)
+    entry_senha_sec = tk.Entry(janela_secretario_cadastro, width=40, show="*")
+    entry_senha_sec.pack()
+
+    tk.Button(janela_secretario_cadastro, text="Cadastrar",
+              command=cadastrar_senha_secretario).pack(pady=20)
+
+
+def abrir_janela_docente():
+    global janela_docente, entry_matricula_prof, entry_senha_prof
+
+    janela_docente = tk.Toplevel()
+    janela_docente.title("Cadastro Docente")
+    janela_docente.geometry("400x300")
+
+    tk.Label(janela_docente, text="Matrícula:").pack(pady=10)
+    entry_matricula_prof = tk.Entry(janela_docente, width=40)
+    entry_matricula_prof.pack()
+
+    tk.Label(janela_docente, text="Senha:").pack(pady=10)
+    entry_senha_prof = tk.Entry(janela_docente, width=40, show="*")
+    entry_senha_prof.pack()
+
+    tk.Button(janela_docente, text="Cadastrar",
+              command=cadastrar_senha_prof).pack(pady=20)
+
+
+# ======================================
+# LOGIN DO DOCENTE
+# ======================================
+
+def abrir_janela_login_docente():
+    global janela_login, entry_login_matricula, entry_login_senha
+
+    janela_login = tk.Toplevel()
+    janela_login.title("Login Docente")
+    janela_login.geometry("400x300")
+
+    tk.Label(janela_login, text="Matrícula:").pack(pady=10)
+    entry_login_matricula = tk.Entry(janela_login, width=40)
+    entry_login_matricula.pack()
+
+    tk.Label(janela_login, text="Senha:").pack(pady=10)
+    entry_login_senha = tk.Entry(janela_login, width=40, show="*")
+    entry_login_senha.pack()
+
+    tk.Button(janela_login, text="Entrar",
+              command=login_docente).pack(pady=20)
+
+# ======================================
+# LOGIN DO ALUNO
+# ======================================
+def abrir_janela_cadastro_aluno():
+    global janela_cadastro_aluno, entry_matricula_aluno, entry_senha_aluno
+
+    janela_cadastro_aluno = tk.Toplevel()
+    janela_cadastro_aluno.title("Cadastro Aluno")
+    janela_cadastro_aluno.geometry("400x300")
+
+    tk.Label(janela_cadastro_aluno, text="Matrícula:").pack(pady=10)
+    entry_matricula_aluno = tk.Entry(janela_cadastro_aluno, width=40)
+    entry_matricula_aluno.pack()
+
+    tk.Label(janela_cadastro_aluno, text="Senha:").pack(pady=10)
+    entry_senha_aluno = tk.Entry(janela_cadastro_aluno, width=40, show="*")
+    entry_senha_aluno.pack()
+
+    tk.Button(janela_cadastro_aluno, text="Cadastrar",
+              command=cadastrar_senha_aluno).pack(pady=20)
+
+def cadastrar_senha_aluno():
+    matricula = entry_matricula_aluno.get().strip()
+    senha = entry_senha_aluno.get().strip()
+
+    if matricula == "" or senha == "":
+        messagebox.showwarning("Aviso", "Preencha todos os campos!")
+        return
+
+    # verificar se aluno existe
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv",
+                  "r", encoding="utf-8") as f:
+            alunos = f.readlines()
+    except:
+        messagebox.showerror("Erro", "Arquivo students.csv não encontrado!")
+        return
 
     encontrado = False
-    for linha in linhas:
+    nome_aluno = ""
+
+    for linha in alunos:
         partes = linha.strip().split(",")
         if len(partes) >= 2 and partes[1] == matricula:
-            resultado.config(text=f"=== Cadastro Encontrado ===\n{linha}")
             encontrado = True
+            nome_aluno = partes[0]    #Pega nome do aluno
             break
 
     if not encontrado:
         messagebox.showerror("Erro", "Aluno não encontrado!")
-
-
-def excluir_usuario():
-    matricula = entry_excluir.get().strip()
-    if matricula == "":
-        messagebox.showwarning("Aviso", "Digite uma matrícula para excluir!")
         return
 
-    f = open("C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\students.csv", "r", encoding="utf-8")
-    linhas = f.readlines()
-    f.close()
+    # validar senha
+    if len(senha) < 6 or not any(d in senha for d in numero):
+        messagebox.showerror("Erro", "Senha deve ter no mínimo 6 caracteres e 1 número!")
+        return
 
-    novo_conteudo = []
-    encontrado = False
+    senha_hash = hashlib.sha256(senha.encode()).hexdigest()
+
+    #gerar email
+    email = gerar_email(nome_aluno, "aluno")
+
+    # salvar senha + email
+    with open("C:\\Users\\Lfgr1\\Python\\output\\senha_aluno.csv",
+              "a", encoding="utf-8") as f:
+        f.write(f"{matricula},{senha_hash},{email}\n")
+
+    messagebox.showinfo("Sucesso", f"Senha cadastrada!")
+    janela_cadastro_aluno.destroy()
+    abrir_menu_aluno(matricula)
+
+def abrir_janela_login_aluno(): #CASO ALUNO JÁ TENHA CADASTRO
+    global entry_login_aluno_matricula, entry_login_aluno_senha
+
+    janela_login_aluno = tk.Toplevel()
+    janela_login_aluno.title("Login Aluno")
+    janela_login_aluno.geometry("400x300")
+
+    tk.Label(janela_login_aluno, text="Matrícula:").pack(pady=10)
+    entry_login_aluno_matricula = tk.Entry(janela_login_aluno, width=40)
+    entry_login_aluno_matricula.pack()
+
+    tk.Label(janela_login_aluno, text="Senha:").pack(pady=10)
+    entry_login_aluno_senha = tk.Entry(janela_login_aluno, width=40, show="*")
+    entry_login_aluno_senha.pack()
+
+    tk.Button(janela_login_aluno, text="Entrar",
+              command=lambda: login_aluno(janela_login_aluno)).pack(pady=20)
+
+def login_aluno(janela):
+    matricula = entry_login_aluno_matricula.get().strip()
+    senha = entry_login_aluno_senha.get().strip()
+
+    if matricula == "" or senha == "":
+        messagebox.showwarning("Aviso", "Preencha todos os campos!")
+        return
+
+    # ler senhas dos alunos
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\senha_aluno.csv",
+                  "r", encoding="utf-8") as f:
+            linhas = f.readlines()
+    except:
+        messagebox.showerror("Erro", "Aluno sem senha cadastrada!")
+        return
+
+    senha_hash = hashlib.sha256(senha.encode()).hexdigest()
 
     for linha in linhas:
         partes = linha.strip().split(",")
-        if len(partes) >= 2 and partes[1] == matricula:
-            encontrado = True
-        else:
-            novo_conteudo.append(linha)
+        if len(partes) >= 2 and partes[0] == matricula and partes[1] == senha_hash:
+            messagebox.showinfo("Login", "Bem-vindo!")
+            janela.destroy()
+            abrir_menu_aluno(matricula)
+            return
 
-    f = open("C:\\Users\\Pichau\\OneDrive\\Documentos\\C\\students.csv", "w", encoding="utf-8")
-    f.writelines(novo_conteudo)
-    f.close()
+    messagebox.showerror("Erro", "Matrícula ou senha incorretas!")
 
-    if encontrado:
-        messagebox.showinfo("Sucesso", f"Aluno com matrícula {matricula} foi excluído!")
+
+def abrir_menu_aluno(matricula):
+    janela_aluno = tk.Toplevel()
+    janela_aluno.title("Menu do Aluno")
+    janela_aluno.geometry("400x350")
+
+    tk.Label(janela_aluno, text="MENU DO ALUNO",
+             font=("Arial", 12, "bold")).pack(pady=20)
+
+    tk.Button(janela_aluno, text="Meus Dados", width=25,
+              command=lambda: aluno_ver_dados(matricula)).pack(pady=10)
+
+    tk.Button(janela_aluno, text="Minhas Notas", width=25,
+              command=lambda: aluno_ver_notas(matricula)).pack(pady=10)
+
+    tk.Button(janela_aluno, text="Assistente Virtual", width=25,
+              command=abrir_chatbot).pack(pady=10)
+
+    tk.Button(janela_aluno, text="Sair", width=25,
+          command=aplicar_confirmacao_fechar(janela_aluno)).pack(pady=20)
+
+
+def aluno_ver_dados(matricula):
+    #ler o arquivo(nome, matricula, turma)
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\students.csv",
+                  "r", encoding="utf-8") as f:
+            alunos = f.readlines()
+    except:
+        messagebox.showerror("Erro", "Arquivo students.csv não encontrado!")
+        return
+
+    nome = ""
+    turma = ""
+
+    for linha in alunos:
+        partes = linha.strip().split(",")
+        if len(partes) >= 3 and partes[1] == matricula:
+            nome = partes[0]
+            turma = partes[2]
+            break
+
+    if nome == "":
+        messagebox.showerror("Erro", "Dados do aluno não encontrados!")
+        return
+
+    #Ler senha_aluno.csv para pegar o e-mail
+    try:
+        with open("C:\\Users\\Lfgr1\\Python\\output\\senha_aluno.csv",
+                  "r", encoding="utf-8") as f:
+            senhas = f.readlines()
+    except:
+        senhas = []
+
+    email = "E-mail não cadastrado"
+
+    for linha in senhas:
+        partes = linha.strip().split(",")
+        if len(partes) >= 3 and partes[0] == matricula:
+            email = partes[2]
+            break
+
+    #Mostrar tudo
+    dados = (
+        f"Nome: {nome}\n"
+        f"Matrícula: {matricula}\n"
+        f"Turma: {turma}\n"
+        f"E-mail: {email}"
+    )
+
+    messagebox.showinfo("Meus Dados", dados)
+
+def aluno_ver_notas(matricula):
+    arquivo = f"C:\\Users\\Lfgr1\\Python\\output\\result_{matricula}.csv"
+
+    try:
+        with open(arquivo, "r", encoding="utf-8") as f:
+            linhas = f.readlines()
+    except:
+        messagebox.showerror("Erro", "Nenhuma nota lançada para você!")
+        return
+
+    notas_formatadas = ""
+    encontrou = False
+
+    for linha in linhas:
+        partes = linha.strip().split(",")
+
+        # ignorar linhas de cabeçalho repetidas
+        if partes[0] == "Nome":
+            continue
+
+        if len(partes) < 7:
+            continue
+
+        mat, disciplina, n1, n2, media, situ = partes[1:]
+        #mostra as notas do aluno
+        if mat == matricula:
+            encontrou = True
+            notas_formatadas += (
+                f"Disciplina: {disciplina}\n"
+                f"Nota 1: {n1}\n"
+                f"Nota 2: {n2}\n"
+                f"Média: {media}\n"
+                f"Situação: {situ}\n\n"
+            )
+
+    if not encontrou:
+        messagebox.showerror("Erro", "Nenhuma nota encontrada!")
     else:
-        messagebox.showerror("Erro", "Aluno não encontrado!")
+        messagebox.showinfo("Minhas Notas", notas_formatadas)
 
-    entry_excluir.delete(0, tk.END)
+def aplicar_confirmacao_fechar(janela):
+    def confirmar():
+        resposta = messagebox.askyesno("Sair", "Deseja realmente fechar esta janela?")
+        if resposta:
+            janela.destroy()
+    janela.protocol("WM_DELETE_WINDOW", confirmar)
+    return confirmar
 
+# ======================================
+# JANELA INICIAL DO PROGRAMA
+# ======================================
 
-janela = tk.Tk()
-janela.title("Sistema Acadêmico")
-janela.geometry("800x800")
+janela_menu = tk.Tk()
+janela_menu.title("Tela Inicial")
+janela_menu.geometry("400x300")
 
-tk.Label(janela, text="Nome do Aluno:").pack()
-entry_nome = tk.Entry(janela, width=40)
-entry_nome.pack()
+tk.Label(janela_menu, text="Selecione o tipo de acesso:").pack(pady=20)
 
-tk.Label(janela, text="Matrícula:").pack()
-entry_matricula = tk.Entry(janela, width=40)
-entry_matricula.pack()
+tk.Button(janela_menu, text="Aluno", width=15,
+          command=lambda: abrir_janela_acesso("Aluno")).pack(pady=10)
 
-tk.Label(janela, text="Nota 1:").pack()
-entry_nota1 = tk.Entry(janela, width=40)
-entry_nota1.pack()
+tk.Button(janela_menu, text="Docente", width=15,
+          command=lambda: abrir_janela_acesso("Docente")).pack(pady=10)
 
-tk.Label(janela, text="Nota 2:").pack()
-entry_nota2 = tk.Entry(janela, width=40)
-entry_nota2.pack()
+tk.Button(janela_menu, text="Secretariado", width=15,
+          command=lambda: abrir_janela_acesso("Secretariado")).pack(pady=10)
 
-tk.Button(janela, text="Lançar Notas", command=lancar_notas).pack(pady=10)
-tk.Button(janela, text="Exibir Usuários Cadastrados", command=read_usuarios).pack(pady=5)
-tk.Button(janela, text="Exibir Notas dos Alunos", command=read_notas).pack(pady=5)
-
-tk.Label(janela, text="\nPesquisar aluno pela matrícula:").pack()
-entry_pesquisa = tk.Entry(janela, width=40)
-entry_pesquisa.pack()
-tk.Button(janela, text="Pesquisar", command=pesquisar_aluno).pack(pady=5)
-
-resultado = tk.Label(janela, text="", justify="left", font=("Courier New", 10))
-resultado.pack(pady=20)
-
-tk.Label(janela, text="\nConsultar dados cadastrais:").pack()
-entry_consulta = tk.Entry(janela, width=40)
-entry_consulta.pack()
-tk.Button(janela, text="Consultar Cadastro", command=consultar_cadastro).pack(pady=5)
-
-tk.Label(janela, text="\nExcluir aluno pela matrícula:").pack()
-entry_excluir = tk.Entry(janela, width=40)
-entry_excluir.pack()
-tk.Button(janela, text="Excluir Usuário", command=excluir_usuario).pack(pady=5)
-
-janela.mainloop()
+janela_menu.mainloop()
