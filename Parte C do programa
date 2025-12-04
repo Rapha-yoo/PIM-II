@@ -1,0 +1,369 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+FILE *filestudents, *fileprofessor, *filesecretariado, *filesenha_secretariado, *filematerias, *fileturmas, 
+    *filevinculo, *filetemp, *fturma;
+char aluno[100], professor[100], secretariado[100], linha_nome[200], linha_senha[200],
+        senha_secretariado[100], materia[100], turma[100], linha_turma[200], arquivo_turma[50], linha_encontrada[200] ,
+        linha_atual[200];
+int opcao, opcao_secretariado, opcao_professor, matricula, vid, vid2, encontrado = 0, ja_vinculado;
+
+void cadastrarAluno() {
+    // Pede o nome do aluno
+    printf("Digite o nome do aluno: ");
+    fgets(aluno, sizeof(aluno), stdin);
+    aluno[strcspn(aluno, "\n")] = '\0';// Remove o '\n' que vem no final do fgets
+
+    printf("Digite a matricula do aluno: ");// Pede a matrícula do aluno
+    scanf("%d", &matricula);
+    getchar(); // limpa buffer
+
+    fprintf(filestudents, "%s,%d\n", aluno, matricula);// Grava no arquivo students.csv no formato Nome,Matricula
+
+    printf("Aluno cadastrado com sucesso!\n");
+}
+
+void cadastrarProf() {
+     // Pede o nome do professor
+    printf("Digite o nome: ");
+    fgets(professor, sizeof(professor), stdin);
+    professor[strcspn(professor, "\n")] = '\0';// Remove o '\n' que vem no final do fgets
+
+    printf("Digite o registro: ");// Pede registro
+    scanf("%d", &vid);
+    getchar(); // limpa buffer
+
+    fprintf(fileprofessor, "%s,%d\n", professor, vid);// Grava no arquivo professor.csv
+
+    printf("Professor cadastrado com sucesso!\n");
+}
+
+void cadastrarAdmin() {
+    // Pede o nome do administrador/secretário
+    printf("Digite o nome: ");
+    fgets(secretariado, sizeof(secretariado), stdin);
+    secretariado[strcspn(secretariado, "\n")] = '\0';
+
+    printf("Digite o registro: ");// Pede o registro
+    scanf("%d", &vid2);
+    getchar(); 
+
+    fprintf(filesecretariado, "%s,%d\n", secretariado, vid2);// Salva no arquivo secretario.csv
+
+    printf("Administrador cadastrado com sucesso!\n");
+}
+
+int main() {
+    // Menu inicial do sistema
+    do {
+        printf("\n=== Sistema Academico ===\n");
+        printf("1 - Primeiro acesso\n");
+        printf("2 - Entrar como secretariado\n");
+        printf("0 - Sair\n");
+        printf("Escolha uma opcao: ");
+        scanf("%d", &opcao);
+        getchar();
+
+        switch (opcao) {
+            // OPÇÃO 1 — PRIMEIRO ACESSO
+            case 1:
+                printf("\nPrimeiro acesso ao sistema\n");
+                printf("Por favor, efetue o cadastro do secretariado:\n");
+                printf("Nome: ");
+
+                filesecretariado = fopen("secretario.csv", "a");// Abre arquivos para salvar o secretário e sua senha
+                filesenha_secretariado = fopen("senha_admin.csv", "a");
+                if (filesecretariado == NULL) {
+                    printf("Erro ao abrir arquivo de secretariado!\n");
+                    return 0;
+                }
+                // grava o nome do secretário
+                fgets(secretariado, sizeof(secretariado), stdin);
+                secretariado[strcspn(secretariado, "\n")] = '\0';
+                // grava o registro
+                printf("Registro: ");
+                scanf("%i", &matricula);
+                getchar();
+                // grava a senha
+                printf("\nAgora, defina uma senha: ");
+                fgets(senha_secretariado, sizeof(senha_secretariado), stdin);
+                senha_secretariado[strcspn(senha_secretariado, "\n")] = '\0';
+                // Salva no arquivo: primeiro nome e registro, depois a senha
+                fprintf(filesecretariado, "%s,%i\n", secretariado, matricula);
+                fprintf(filesenha_secretariado, "%s\n", senha_secretariado);
+                fclose(filesenha_secretariado);
+                fclose(filesecretariado);
+                printf("Cadastro realizado com sucesso!\n");
+                break;
+
+            case 2:// OPÇÃO 2 — LOGIN DO SECRETARIADO
+                printf("\n=== Login Secretariado ===\n");
+                filesecretariado = fopen("secretario.csv", "r");
+                filesenha_secretariado = fopen("senha_admin.csv", "r");
+
+                if (filesecretariado == NULL) {// Verifica se o secretário já foi cadastrado
+                    printf("Erro, nenhum usuario cadastrado\n");
+                    return 0;
+                }
+
+                printf("Por favor, digite seu nome: ");// Solicita o nome e senha digitados pelo usuário
+                fgets(secretariado, sizeof(secretariado), stdin);
+                secretariado[strcspn(secretariado, "\n")] = '\0';
+
+                printf("\nPor favor, digite sua senha: ");
+                fgets(senha_secretariado, sizeof(senha_secretariado), stdin);
+                senha_secretariado[strcspn(senha_secretariado, "\n")] = '\0';
+
+                encontrado = 0;// Variável para saber se encontramos o usuário
+                // Lê NOME e SENHA linha a linha, comparando simultaneamente
+                while (fgets(linha_nome, sizeof(linha_nome), filesecretariado) &&//fgets para ler as linha no arquivo
+                       fgets(linha_senha, sizeof(linha_senha), filesenha_secretariado)) {
+                    linha_nome[strcspn(linha_nome, "\n")] = '\0';
+                    linha_senha[strcspn(linha_senha, "\n")] = '\0';
+                    
+                    // Checa se o nome existe no arquivo e se a senha corresponde
+                    if (strstr(linha_nome, secretariado) && strcmp(linha_senha, senha_secretariado) == 0) {
+                        encontrado = 1;
+                        break;
+                    }
+                }
+                fclose(filesenha_secretariado);
+                fclose(filesecretariado);
+
+                if (!encontrado) {// Se não achou: acesso negado
+                    printf("Secretario '%s' nao encontrado! Nao e possivel acessar o menu.\n", secretariado);
+                    return 0;
+                }
+
+                do {// Exibe o menu principal do secretariado
+                    printf("\n=== MENU SECRETARIADO ===\n");
+                    printf("1 - Cadastrar Estudante\n");
+                    printf("2 - Cadastrar Professor\n");
+                    printf("3 - Cadastrar Secretariado\n");
+                    printf("4 - Incluir Materia\n");
+                    printf("5 - Cadastrar Turma\n");
+                    printf("6 - Vincular Aluno a Turma\n");
+                    printf("0 - Sair\n");
+                    printf("Escolha uma opcao: ");
+                    scanf("%d", &opcao_secretariado);
+                    getchar();// limpa \n do teclado para evitar problemas com fgets
+
+                    switch (opcao_secretariado) {
+                        case 1:
+                            filestudents = fopen("students.csv", "a");// abre o arquivo
+                            if (filestudents == NULL) {
+                                printf("Erro ao abrir arquivo de estudantes!\n");
+                                break;
+                            }
+
+                            cadastrarAluno(); //chama a função
+
+                            fclose(filestudents);//fecha o arquivo
+                            break;
+
+                        case 2:
+                            fileprofessor = fopen("professor.csv", "a");// abre o arquivo
+                            if (fileprofessor == NULL) {
+                                printf("Erro ao abrir arquivo de professores!\n");
+                                break;
+                            }
+                            
+                            cadastrarProf();//chama a função
+
+                            fclose(fileprofessor);// abre o arquivo
+                            break;
+
+                        case 3:
+                            filesecretariado = fopen("secretario.csv", "a");// abre o arquivo
+                            if (filesecretariado == NULL) {
+                                printf("Erro ao abrir arquivo de secretariado!\n");
+                                break;
+                            }
+
+                            cadastrarAdmin();//chama a função
+                            
+                            fclose(filesecretariado);// abre o arquivo
+                            break;
+
+                        case 4:
+                            filematerias = fopen("materias.csv", "a");
+                            if (filematerias == NULL) {
+                                printf("Erro ao abrir o arquivo de materias!\n");
+                                break;
+                            }
+
+                            printf("Digite o nome da materia: "); // solicita o nome da matéria
+                            fgets(materia, sizeof(materia), stdin);
+                            materia[strcspn(materia, "\n")] = '\0';// remove \n do fgets
+
+                            fprintf(filematerias, "%s\n", materia);// grava a matéria no arquivo
+                            fclose(filematerias);
+                            printf("Materia cadastrada com sucesso!\n");
+                            break;
+
+                        case 5:
+                            fileturmas = fopen("turmas.csv", "a");// Abre o arquivo de turmas
+                            if (fileturmas == NULL) {
+                                printf("Erro ao abrir o arquivo de turmas!\n");
+                                break;//volta ao menu
+                            }
+
+                            printf("Digite o nome da turma: ");// Pede ao usuário o nome da turma
+                            fgets(turma, sizeof(turma), stdin);
+                            turma[strcspn(turma, "\n")] = '\0';
+
+                            fprintf(fileturmas, "%s\n", turma);// Grava a turma no arquivo como uma nova linha
+                            fclose(fileturmas);
+                            printf("Turma '%s' cadastrada com sucesso!\n", turma);
+                            break;
+
+                        case 6: 
+                            // Pede o nome do aluno
+                            printf("Digite o nome do aluno que deseja vincular: ");
+                            fgets(aluno, sizeof(aluno), stdin);
+                            aluno[strcspn(aluno, "\n")] = '\0';
+
+                            // Verifica se aluno existe em students.csv
+                            filestudents = fopen("students.csv", "r");
+                            if (filestudents == NULL) {
+                                printf("Erro: nenhum aluno cadastrado ainda.\n");
+                                break;
+                            }
+
+                            encontrado = 0;// Procura o aluno dentro do arquivo
+                            while (fgets(linha_encontrada, sizeof(linha_encontrada), filestudents)) {
+                                linha_encontrada[strcspn(linha_encontrada, "\n")] = '\0';
+                                if (strstr(linha_encontrada, aluno) != NULL) {// strstr verifica se o nome digitado está contido na linha
+                                    encontrado = 1;
+                                    break;
+                                }
+                            }
+                            fclose(filestudents);
+
+                            if (!encontrado) {// Se não achou, encerra
+                                printf("Erro: aluno '%s' nao encontrado.\n", aluno);
+                                break;
+                            }
+
+                            // Pergunta a turma
+                            printf("Digite o nome da turma: ");
+                            fgets(turma, sizeof(turma), stdin);
+                            turma[strcspn(turma, "\n")] = '\0';
+
+                            //VERIFICA SE A TURMA EXISTE
+                            fturma = fopen("turmas.csv", "r");
+                            if (fturma == NULL) {
+                                printf("Erro: nenhum cadastro de turmas existe ainda.\n");
+                                break;
+                            }
+
+                            ja_vinculado = 0; // flag 
+                            char linha_tmp[200];
+                            // Percorre o arquivo de turmas procurando o nome
+                            while (fgets(linha_tmp, sizeof(linha_tmp), fturma)) {
+                                linha_tmp[strcspn(linha_tmp, "\n")] = '\0';
+
+                                if (strcmp(linha_tmp, turma) == 0) {// encontrou
+                                    ja_vinculado = 1;
+                                    break;
+                                }
+                            }
+                            fclose(fturma);
+
+                            if (!ja_vinculado) {// Turma não está cadastrada
+                                printf("Erro: a turma '%s' não existe!\n", turma);
+                                break;
+                            }
+                            // =================================================
+
+                            //cria arquivo com nome da turma
+                            sprintf(arquivo_turma, "%s.csv", turma);
+
+                            // Abre em modo leitura/escrita
+                            fturma = fopen(arquivo_turma, "a+");
+                            if (fturma == NULL) {
+                                printf("Erro: arquivo da turma '%s' nao encontrado.\n", turma);
+                                break;
+                            }
+
+                            //verifica se o aluno já está na turma
+                            ja_vinculado = 0;
+
+                            rewind(fturma);// garante que começa do topo
+                            while (fgets(linha_tmp, sizeof(linha_tmp), fturma)) {
+                                linha_tmp[strcspn(linha_tmp, "\n")] = '\0';
+
+                                if (strcmp(linha_tmp, linha_encontrada) == 0) {
+                                    ja_vinculado = 1;
+                                    break;
+                                }
+                            }
+
+                            if (ja_vinculado) {
+                                fclose(fturma);
+                                printf("Aluno ja vinculado a essa turma.\n");
+                                break;
+                            }
+
+                            //escreve o nome do aluno na turma
+                            fseek(fturma, 0, SEEK_END);// vai pro fim
+                            fprintf(fturma, "%s\n", linha_encontrada);
+                            fclose(fturma);
+                            //atualiza o arquivo para registrar a turma do aluno
+                            filetemp = fopen("temp_students.csv", "w");
+                            filestudents = fopen("students.csv", "r");
+
+                            if (filestudents == NULL || filetemp == NULL) {
+                                printf("Erro ao atualizar o arquivo de estudantes.\n");
+                                if (filestudents) fclose(filestudents);
+                                if (filetemp) fclose(filetemp);
+                                break;
+                            }
+                            // Copia todos os alunos para o novo arquivo,
+                            // adicionando a turma apenas no aluno correto
+                            while (fgets(linha_atual, sizeof(linha_atual), filestudents)) {
+                                linha_atual[strcspn(linha_atual, "\n")] = '\0';
+
+                                if (strcmp(linha_atual, linha_encontrada) == 0) {// Se for o aluno encontrado
+
+                                    if (strstr(linha_atual, turma) == NULL) {// Se não tiver a turma na linha, ele adiciona
+                                        fprintf(filetemp, "%s,%s\n", linha_atual, turma);
+
+                                    } else {// aluno já tinha turma no arquivo
+                                        fprintf(filetemp, "%s\n", linha_atual);
+                                    }
+                                } else {// Apenas copia os outros alunos
+                                    fprintf(filetemp, "%s\n", linha_atual);
+                                }
+                            }
+
+                            fclose(filestudents);
+                            fclose(filetemp);
+                            // Substitui o arquivo pelo atualizado
+                            remove("students.csv");
+                            rename("temp_students.csv", "students.csv");
+
+                            printf("Aluno vinculado com sucesso à turma '%s'!\n", turma);
+                            break;
+
+                    }
+
+                } while (opcao_secretariado != 0);//O menu só é encerrado quando o usuário digita 0.
+                break;
+
+            case 0:// Quando o usuário escolhe 0, mostra a mensagem de saida
+                printf("Saindo...\n");
+                break;
+
+            default:
+                printf("Opcao invalida!\n");
+                break;
+        }
+
+    } while (opcao != 0);//WHILE do menu principal do sistema que executa enquanto a escolha for diferente de 0
+
+    return 0;
+}
+
+
